@@ -8,8 +8,6 @@ import { encode, sign } from './open-oracle/reporter';
 const Web3 = require("web3");
 const Tx = require("ethereumjs-tx").Transaction;
 
-// 参考 https://cryptozombies.io/zh/lesson/6/chapter/4
-
 @Injectable()
 export class AppService extends NestSchedule {
    
