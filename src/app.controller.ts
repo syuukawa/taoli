@@ -10,10 +10,4 @@ export class AppController {
   getHello(): string {
     return this.appService.getHello();
   }
-
-  @Get('/price')
-  getWooTradePrice(): string {
-    this.appService.getWooTradePrice();
-    return null;
-  }
 }
