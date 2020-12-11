@@ -5,6 +5,8 @@ import * as _ from 'lodash';
 import { address, bytes, numToHex, time } from './open-oracle/helpers';
 import { encode, sign } from './open-oracle/reporter';
 
+import { configService } from './config/config.service';
+
 const Web3 = require("web3");
 const Tx = require("ethereumjs-tx").Transaction;
 
@@ -20,12 +22,13 @@ export class AppService extends NestSchedule {
    */
   @Interval(10000)
   async syncFromWootrade() { 
+    console.log(" --- ContractAddress ---", configService.getContractAddress());
 
-    const contractAddress = "0xfeb289c59b1cb9d00c4d6b277cff5ab1dcff54ec"; //合约地址
-    const source = "0x8d8D8dE95DF82455c887661ada3F3FA07e93fbbD";
-    const fromAddress = "0x8d8D8dE95DF82455c887661ada3F3FA07e93fbbD";
-    const privateKey = "0x3ce6001b8d44c5efd7dcc7010e75c1e05e246ef43cef3983f6d8d32002be81e8";
-    const key = "ETH";
+    const contractAddress = configService.getContractAddress(); //合约地址
+    const fromAddress = configService.getFromAddress();
+    const privateKey = configService.getPrivateKey();
+    // const source = configService.getSource();
+    // const key = configService.getKey();
     
       console.log("=== syncFromWootrade ===");
       let ws  = new WebSocket('wss://api.staging.woo.network/ws/stream?streams=bbo');
