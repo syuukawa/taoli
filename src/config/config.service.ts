@@ -1,3 +1,5 @@
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+
 require('dotenv').config();
 
 class ConfigService {
@@ -46,7 +48,29 @@ class ConfigService {
     const mode = this.getValue('MODE', false);
     return mode != 'DEV';
   }
+
+  public getTypeOrmConfig(): TypeOrmModuleOptions {
+    return {
+      type: 'postgres',
+      host: "127.0.0.1",
+      port: 5432,
+      username: "postgres",
+      password: "postgres",
+      database: "taoliDB",
+
+      entities: [`./src/**/*.entity{.ts,.js}`],
+      migrationsTableName: 'migration',
+      migrations: [`./src/migration/**{.ts,.js}`],
+
+      cli: {
+        migrationsDir: `./src/migration`
+      },
+
+      ssl: false,
+    };
+  }
 }
+
 
 const configService = new ConfigService(process.env)
   .ensureValues([
