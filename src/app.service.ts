@@ -1,255 +1,113 @@
 import { Injectable } from '@nestjs/common';
 import { Interval, NestSchedule } from 'nest-schedule';
-import * as WebSocket from 'ws';
-import * as _ from 'lodash';
-import { address, bytes, numToHex, time } from './open-oracle/helpers';
-import { encode, sign } from './open-oracle/reporter';
 
-import { configService } from './config/config.service';
+import { ChainId, Token, WETH, Fetcher, Route } from '@uniswap/sdk'
 
-const Web3 = require("web3");
-const Tx = require("ethereumjs-tx").Transaction;
+import { TokenType } from './app.interface';
+
+var axios = require('axios');
+
+// Infrua Error: Returned error: daily request count exceeded, request rate limited
 
 @Injectable()
 export class AppService extends NestSchedule {
-   
-  getHello(): string {
+
+    constructor() {
+        super();
+    }
+
+    getHello(): string {
     return 'Hello World!';
   }
 
-  /**
-   * sync blocks from blockchain
-   */
-  @Interval(10000)
-  async syncFromWootrade() { 
-    console.log(" --- ContractAddress ---", configService.getContractAddress());
+  public async getAllTokensInUniswap(): Promise<string> {
 
-    const contractAddress = configService.getContractAddress(); //合约地址
-    const fromAddress = configService.getFromAddress();
-    const privateKey = configService.getPrivateKey();
-    // const source = configService.getSource();
-    // const key = configService.getKey();
-    
-      console.log("=== syncFromWootrade ===");
-      let ws  = new WebSocket('wss://api.staging.woo.network/ws/stream?streams=bbo');
-      await new Promise(resolve => ws.on('open', resolve));
-     
-      let priceFlg = true;
-      let syncOracleFlg = true;
-      let ethUsdtPrice = 0;
-      let message = "";
-      let signature = "";
-      await new Promise(resolve =>
-        ws.on('message', async data => {
-          if(priceFlg){
-            console.log("get eth_usdt price from wootrade === 111111 ");
-            // 1. get eth_usdt price from wootrade 
-            const wootradeBbo = JSON.parse(data);
-            const bboTimestamp = wootradeBbo.timestamp;
-            const bboData = wootradeBbo.data;
-            const ethUsdt = _.find(bboData, function(o) { 
-                return o.symbol ==  "SPOT_ETH_USDT"; 
-              });
-            console.log('ethUsdt ===>', ethUsdt);
-            ethUsdtPrice = ethUsdt.b;
-            console.log('ethUsdtPrice ===>', ethUsdtPrice);
-
-            // 2.Get message and signature
-            [{ message, signature }] = sign(
-                encode('prices', time(), [['ETH', ethUsdtPrice]]),
-                privateKey
-            );
-            priceFlg = false;
-          } else {
-            if(syncOracleFlg){
-                syncOracleFlg = false; 
-                console.log("sync eth_usdt price to oracle === 222222");
-                // 3.sync eth_usdt price to oracle 
-                // 创建web3对象
-                const web3 = new Web3();
-                // 连接到 kovan 测试节点
-                web3.setProvider(new Web3.providers.HttpProvider("https://kovan.infura.io/v3/1f3fa92bc461481bac2ab8473851992a"))
-                const abi = [
-                    {
-                        "anonymous": false,
-                        "inputs": [
-                            {
-                                "indexed": false,
-                                "internalType": "uint64",
-                                "name": "priorTimestamp",
-                                "type": "uint64"
-                            },
-                            {
-                                "indexed": false,
-                                "internalType": "uint256",
-                                "name": "messageTimestamp",
-                                "type": "uint256"
-                            },
-                            {
-                                "indexed": false,
-                                "internalType": "uint256",
-                                "name": "blockTimestamp",
-                                "type": "uint256"
-                            }
-                        ],
-                        "name": "NotWritten",
-                        "type": "event"
-                    },
-                    {
-                        "inputs": [
-                            {
-                                "internalType": "bytes",
-                                "name": "message",
-                                "type": "bytes"
-                            },
-                            {
-                                "internalType": "bytes",
-                                "name": "signature",
-                                "type": "bytes"
-                            }
-                        ],
-                        "name": "put",
-                        "outputs": [
-                            {
-                                "internalType": "string",
-                                "name": "",
-                                "type": "string"
-                            }
-                        ],
-                        "stateMutability": "nonpayable",
-                        "type": "function"
-                    },
-                    {
-                        "anonymous": false,
-                        "inputs": [
-                            {
-                                "indexed": true,
-                                "internalType": "address",
-                                "name": "source",
-                                "type": "address"
-                            },
-                            {
-                                "indexed": false,
-                                "internalType": "string",
-                                "name": "key",
-                                "type": "string"
-                            },
-                            {
-                                "indexed": false,
-                                "internalType": "uint64",
-                                "name": "timestamp",
-                                "type": "uint64"
-                            },
-                            {
-                                "indexed": false,
-                                "internalType": "uint64",
-                                "name": "value",
-                                "type": "uint64"
-                            }
-                        ],
-                        "name": "Write",
-                        "type": "event"
-                    },
-                    {
-                        "inputs": [
-                            {
-                                "internalType": "address",
-                                "name": "source",
-                                "type": "address"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "key",
-                                "type": "string"
-                            }
-                        ],
-                        "name": "get",
-                        "outputs": [
-                            {
-                                "internalType": "uint64",
-                                "name": "",
-                                "type": "uint64"
-                            },
-                            {
-                                "internalType": "uint64",
-                                "name": "",
-                                "type": "uint64"
-                            }
-                        ],
-                        "stateMutability": "view",
-                        "type": "function"
-                    },
-                    {
-                        "inputs": [
-                            {
-                                "internalType": "address",
-                                "name": "source",
-                                "type": "address"
-                            },
-                            {
-                                "internalType": "string",
-                                "name": "key",
-                                "type": "string"
-                            }
-                        ],
-                        "name": "getPrice",
-                        "outputs": [
-                            {
-                                "internalType": "uint64",
-                                "name": "",
-                                "type": "uint64"
-                            }
-                        ],
-                        "stateMutability": "view",
-                        "type": "function"
-                    },
-                    {
-                        "inputs": [
-                            {
-                                "internalType": "bytes",
-                                "name": "message",
-                                "type": "bytes"
-                            },
-                            {
-                                "internalType": "bytes",
-                                "name": "signature",
-                                "type": "bytes"
-                            }
-                        ],
-                        "name": "source",
-                        "outputs": [
-                            {
-                                "internalType": "address",
-                                "name": "",
-                                "type": "address"
-                            }
-                        ],
-                        "stateMutability": "pure",
-                        "type": "function"
-                    }
-                ]; // 合约ABI
-    
-                const priceContract = new web3.eth.Contract(abi, contractAddress); // 通过ABI和地址获取已部署的合约对象
-                const myData = priceContract.methods.put(message,signature).encodeABI();
-            
-                //const gasPrice = web3.eth.gasPrice;
-                var txCount = await web3.eth.getTransactionCount(fromAddress);
-                const txObj = {
-                  nonce:    web3.utils.toHex(txCount),
-                  to:       contractAddress,
-                  value:    web3.utils.toHex(web3.utils.toWei('0', 'ether')),
-                  gasLimit: web3.utils.toHex(3000000),
-                  gasPrice: web3.utils.toHex(web3.eth.gasPrice),
-                  data: myData
-                }
-            
-                var signedTx = await web3.eth.accounts.signTransaction(txObj, privateKey);
-                var txResule = await web3.eth.sendSignedTransaction(signedTx.rawTransaction);
-            
-                console.log(" ============= 交易成功，交易hash：" ,txResule.transactionHash); 
-            }
+    var data = JSON.stringify({
+        query: `{
+          tokens(first: 1, skip: 1) {
+           id
+           name
+           symbol
           }
-        }),
-      );
+      }`,
+        variables: {}
+      });
+      
+      var config = {
+        method: 'post',
+        url: 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2',
+        headers: { 
+          'Content-Type': 'application/json', 
+          'Cookie': '__cfduid=dc739c5211ea2d534f9330686290287531609056614'
+        },
+        data : data
+      };
+      
+      return axios(config)
+      .then(async function (response) {
+
+        //1.data
+        const data = response.data.data;
+        // console.log('data === ',response.data.data);
+        // { tokens:
+        //     [ { id: '0x0000000000085d4780b73119b644ae5ecd22b376',
+        //         name: 'TrueUSD',
+        //         symbol: 'TUSD' } ] }   
+        //2.tokens     
+        const tokensObj = data.tokens;
+        // console.log('tokens === ',tokensObj);
+        // tokens ===  [ { id: '0x0000000000085d4780b73119b644ae5ecd22b376',
+        //             name: 'TrueUSD',
+        //             symbol: 'TUSD' } ]     
+        //3.token
+        let tokens: TokenType[] = [];
+        for (const tokenObj of tokensObj) {
+            console.log('tokenObj ===',tokenObj);
+            const token: TokenType = {
+              id: tokenObj.id,
+              name: tokenObj.name,
+              symbol: tokenObj.symbol
+            };
+            //console.log('token ===',token);
+            // await this.getMidPriceToWETH(tokenObj.id);
+            
+            // tokens.push(token);
+        }
+        // console.log('tokens length',tokens.length);
+
+        return JSON.stringify(response.data); 
+      })
+      .catch(function (error) {
+          console.log(error);
+      });
+  }
+
+  public async getMidPriceToWETH(id: string) {
+    console.log("id ====> ",id);
+    const token = new Token(ChainId.MAINNET, id, 18)
+    // note that you may want/need to handle this async code differently,
+    // for example if top-level await is not an option
+    const pair = await Fetcher.fetchPairData(token, WETH[token.chainId])
+    const route = new Route([pair], WETH[token.chainId])
+    console.log("the midprice to ETH",route.midPrice.toSignificant(6)) // 201.306
+    console.log("the midprice to ETH invert ",route.midPrice.invert().toSignificant(6)) // 0.00496756
+  }
+
+  public async getMidPriceFromUsdtToWeth(id: string) {
+    // DAI and WETH doesn’t exist.
+    // 1.DAI -> USDT
+    // 2.USDT -> WETH
+    const USDT = new Token(ChainId.MAINNET, '0xdac17f958d2ee523a2206206994597c13d831ec7', 6)
+    const token = new Token(ChainId.MAINNET, id, 18)
+    
+    // note that you may want/need to handle this async code differently,
+    // for example if top-level await is not an option
+    const USDTWETHPair = await Fetcher.fetchPairData(USDT, WETH[ChainId.MAINNET])
+    const tokenUSDTPair = await Fetcher.fetchPairData(token, USDT)
+    
+    const route = new Route([USDTWETHPair, tokenUSDTPair], WETH[ChainId.MAINNET])
+    
+    console.log(route.midPrice.toSignificant(6)) // 202.081
+    console.log(route.midPrice.invert().toSignificant(6)) // 0.00494851
   }
 }
