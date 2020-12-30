@@ -16,10 +16,11 @@ export class AppController {
     return allTokens;
   }
 
-  @Get(':id/midPriceToWETH')
-  async getMidPriceToWETH(@Param('id') id: string) {
-    console.log('id',id);
-    await this.appService.getMidPriceToWETH(id);
+  @Get(':tokenAddr/midPriceToWETH')
+  async getMidPriceToWETH(@Param('tokenAddr') tokenAddr: string): Promise<string> {
+    console.log('tokenAddr', tokenAddr);
+    const result = await this.appService.getMidPriceToWETH(tokenAddr);
+    return result;
   }
 
   @Get(':id/midPriceFromUsdtToWeth')

@@ -32,17 +32,16 @@ export class AppService extends NestSchedule {
       }`,
         variables: {}
       });
-      
+
       var config = {
         method: 'post',
         url: 'https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2',
-        headers: { 
-          'Content-Type': 'application/json', 
-          'Cookie': '__cfduid=dc739c5211ea2d534f9330686290287531609056614'
+        headers: {
+          'Content-Type': 'application/json',
         },
         data : data
       };
-      
+
       return axios(config)
       .then(async function (response) {
 
@@ -52,13 +51,13 @@ export class AppService extends NestSchedule {
         // { tokens:
         //     [ { id: '0x0000000000085d4780b73119b644ae5ecd22b376',
         //         name: 'TrueUSD',
-        //         symbol: 'TUSD' } ] }   
-        //2.tokens     
+        //         symbol: 'TUSD' } ] }
+        //2.tokens
         const tokensObj = data.tokens;
         // console.log('tokens === ',tokensObj);
         // tokens ===  [ { id: '0x0000000000085d4780b73119b644ae5ecd22b376',
         //             name: 'TrueUSD',
-        //             symbol: 'TUSD' } ]     
+        //             symbol: 'TUSD' } ]
         //3.token
         let tokens: TokenType[] = [];
         for (const tokenObj of tokensObj) {
@@ -70,27 +69,38 @@ export class AppService extends NestSchedule {
             };
             //console.log('token ===',token);
             // await this.getMidPriceToWETH(tokenObj.id);
-            
+
             // tokens.push(token);
         }
         // console.log('tokens length',tokens.length);
 
-        return JSON.stringify(response.data); 
+        return JSON.stringify(response.data);
       })
       .catch(function (error) {
           console.log(error);
       });
   }
 
-  public async getMidPriceToWETH(id: string) {
-    console.log("id ====> ",id);
-    const token = new Token(ChainId.MAINNET, id, 18)
+  @Interval(10000) // 10 second
+  public async getMidPriceToWETH(tokenAddr: string): Promise<string> {
+    const token = new Token(ChainId.MAINNET, tokenAddr, 18)
     // note that you may want/need to handle this async code differently,
     // for example if top-level await is not an option
     const pair = await Fetcher.fetchPairData(token, WETH[token.chainId])
     const route = new Route([pair], WETH[token.chainId])
-    console.log("the midprice to ETH",route.midPrice.toSignificant(6)) // 201.306
-    console.log("the midprice to ETH invert ",route.midPrice.invert().toSignificant(6)) // 0.00496756
+    console.log("midprice to ETH", route.midPrice.toSignificant(6)) // 201.306
+    console.log("midprice to ETH invert ", route.midPrice.invert().toSignificant(6)) // 0.00496756
+
+    let obj = {};
+
+    obj["midPrice"] = route.midPrice.toSignificant(6);
+    obj["invertMidPrice"] = route.midPrice.invert().toSignificant(6);
+
+    let price = new Promise<string>((resolve, reject) => {
+       resolve(JSON.stringify(obj));
+    });
+
+    return price;
   }
 
   public async getMidPriceFromUsdtToWeth(id: string) {
@@ -99,14 +109,14 @@ export class AppService extends NestSchedule {
     // 2.USDT -> WETH
     const USDT = new Token(ChainId.MAINNET, '0xdac17f958d2ee523a2206206994597c13d831ec7', 6)
     const token = new Token(ChainId.MAINNET, id, 18)
-    
+
     // note that you may want/need to handle this async code differently,
     // for example if top-level await is not an option
     const USDTWETHPair = await Fetcher.fetchPairData(USDT, WETH[ChainId.MAINNET])
     const tokenUSDTPair = await Fetcher.fetchPairData(token, USDT)
-    
+
     const route = new Route([USDTWETHPair, tokenUSDTPair], WETH[ChainId.MAINNET])
-    
+
     console.log(route.midPrice.toSignificant(6)) // 202.081
     console.log(route.midPrice.invert().toSignificant(6)) // 0.00494851
   }
